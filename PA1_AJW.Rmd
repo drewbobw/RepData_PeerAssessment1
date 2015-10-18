@@ -1,0 +1,85 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r setoptions, echo=TRUE}
+```
+## Loading and preprocessing the data
+```{r read, results='hide'}
+    library(data.table)
+    library(ggplot2)
+    library(psych)
+    library(xtable)
+    setwd("//Users/Bombur/Documents/Coursera/Reproducable research/")
+    actdata<-read.csv("activity.csv");
+    ## ensure the date was formatted propperly
+    actdata$date<-as.Date(actdata$date)
+    ## Generate day of the week
+    actdata$DoW<-weekdays(actdata$date)
+        actdata$DoW<- factor(actdata$DoW, levels= c("Sunday", "Monday",
+                                                    "Tuesday", "Wednesday", "Thursday"
+                                                    ,"Friday", "Saturday"))
+```
+
+## What is mean total number of steps taken per day?
+```{r avgsteps}
+AvgData<-describeBy(actdata$steps, group=actdata$DoW, mat=T)
+AvgData$group1<- factor(AvgData$group1, levels= c("Sunday", "Monday",              
+                                               "Tuesday", "Wednesday", "Thursday", 
+                                               "Friday", "Saturday"))
+AvgData
+
+histo<-ggplot(AvgData, aes(y=mean, x=group1))
+graph<-histo+geom_histogram(stat="identity")+xlab("Day of the Week")+ylab("Avg. # of Steps")
+graph
+
+```                                           
+
+## What is the average daily activity pattern?
+```{r timeseries}
+avginter<-describeBy(actdata$steps, group=actdata$interval, mat=T)
+timesez<-ggplot(avginter, aes(group1, mean, group=1))
+graph<-timesez+geom_line()+ylab("Avg. Steps")
+graph
+MaxInt<-avginter$group1[max(avginter$mean)]
+```
+The daily interval with the largest average number of steps is:`r MaxInt`
+## Imputing missing values
+```{r fill missing}
+nonmiss<-actdata;
+for (i in 1:nrow(nonmiss) ){
+    if (is.na(nonmiss$steps[i]))
+    {
+        inter<-nonmiss$interval[i]
+        nonmiss$steps[i]<-round(abs(rnorm(1, mean=avginter$mean[avginter$group1==inter], 
+                                          sd=avginter$sd[avginter$group1==inter])))
+    }
+}
+AvgData_nomiss<-describeBy(nonmiss$steps, group=nonmiss$DoW, mat=T)
+AvgData_nomiss$group1<-factor(AvgData_nomiss$group1, levels= c("Sunday", "Monday","Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+AvgData_nomiss
+
+histo_nomiss<-ggplot(AvgData_nomiss, aes(y=mean, x=group1))
+graph_nomiss<-histo_nomiss+geom_histogram(stat="identity")+xlab("Day of the Week") +ylab("Avg. # of Steps")
+graph_nomiss
+
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+```{r weekday split}
+    nonmiss$weekend<-grepl("sat|sun", nonmiss$DoW, ignore.case=T)
+    nonmiss$weekend<-ordered(nonmiss$weekend,
+                         levels = c( F, T),
+                         labels = c("Weekday", "Weekend" )) 
+
+avginter_nomisswknd<-describeBy(nonmiss$steps, 
+                            list(nonmiss$interval, nonmiss$weekend), mat=T)
+
+
+timesez<-ggplot(avginter_nomisswknd, aes(group1, mean, group=group2))
+graph<-timesez+geom_line()+facet_grid(group2~.)+ylab("Avg.  Steps")
+graph
+```
